@@ -1,0 +1,20 @@
+from __future__ import annotations
+
+from .core import check_answer, feedback_message, make_question
+from .stats import load_stats, record_attempt, save_stats, stats_summary
+from .ui_mac import ask_weekday, show_message
+
+
+def run() -> int:
+    stats = load_stats()
+    question = make_question(stats=stats)
+    answer = ask_weekday(question.prompt, question.hint)
+
+    if answer is None:
+        return 0
+
+    result = check_answer(answer, question.target)
+    stats = record_attempt(stats, result)
+    save_stats(stats)
+    show_message(f"{feedback_message(result)}\n\n{stats_summary(stats)}")
+    return 0
