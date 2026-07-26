@@ -54,6 +54,37 @@ class MainTests(unittest.TestCase):
         self.assertEqual(saved_stats["misses_by_month"], {})
         self.assertEqual(saved_stats["recent_attempts"][0]["mistake_stage"], "year")
         self.assertTrue(show_message.call_args.kwargs["collect_mistake_stage"])
+        self.assertIsNone(show_message.call_args.kwargs["mistake_stage_keys"])
+
+    @patch("doomsday_drill.main.save_stats")
+    @patch("doomsday_drill.main.show_message", return_value="century")
+    @patch("doomsday_drill.main.ask_weekday", return_value="Sunday")
+    @patch("doomsday_drill.main.load_stats", side_effect=empty_stats)
+    def test_year_question_limits_mistake_stage_choices(
+        self,
+        load_stats,
+        ask_weekday,
+        show_message,
+        save_stats,
+    ):
+        question = DrillQuestion(
+            target=date(2044, 4, 4),
+            prompt="What is the year's doomsday?",
+            correct_weekday="Monday",
+            hint="Hint",
+            question_kind="year_doomsday",
+        )
+
+        with patch("doomsday_drill.main.make_question", return_value=question):
+            self.assertEqual(run(), 0)
+
+        self.assertEqual(
+            show_message.call_args.kwargs["mistake_stage_keys"],
+            ("century", "year"),
+        )
+        saved_stats = save_stats.call_args.args[0]
+        self.assertEqual(saved_stats["misses_by_century"], {"2000": 1})
+        self.assertEqual(saved_stats["misses_by_month"], {})
 
 
 if __name__ == "__main__":

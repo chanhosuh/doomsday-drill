@@ -15,12 +15,12 @@ from .core import AnswerResult, doomsday_reference, format_date
 APP_SUPPORT_DIR = Path.home() / "Library" / "Application Support" / "Doomsday Drill"
 DEFAULT_STATS_PATH = APP_SUPPORT_DIR / "stats.json"
 MAX_RECENT_ATTEMPTS = 200
-STATS_VERSION = 2
+STATS_VERSION = 3
 MISTAKE_STAGE_BUCKETS = {
-    "century": "misses_by_century",
-    "year": "misses_by_year_mod_100",
-    "month_anchor": "misses_by_month",
-    "offset": "misses_by_offset",
+    "century": ("misses_by_century",),
+    "year": ("misses_by_year", "misses_by_year_mod_100"),
+    "month_anchor": ("misses_by_month",),
+    "offset": ("misses_by_offset",),
 }
 
 
@@ -35,6 +35,7 @@ def empty_stats() -> dict[str, Any]:
         "misses_by_month": {},
         "misses_by_offset": {},
         "misses_by_century": {},
+        "misses_by_year": {},
         "misses_by_year_mod_100": {},
         "recent_attempts": [],
     }
@@ -110,6 +111,7 @@ def normalize_stats(value: object) -> dict[str, Any]:
         "misses_by_month",
         "misses_by_offset",
         "misses_by_century",
+        "misses_by_year",
         "misses_by_year_mod_100",
     ):
         stats[key] = _normalize_counter(value.get(key))
@@ -179,21 +181,31 @@ def _record_miss_buckets(
         "misses_by_month": result.target.month,
         "misses_by_offset": reference.offset_days,
         "misses_by_century": (result.target.year // 100) * 100,
+        "misses_by_year": result.target.year,
         "misses_by_year_mod_100": result.target.year % 100,
     }
-    selected_bucket = MISTAKE_STAGE_BUCKETS.get(mistake_stage)
+    selected_buckets = MISTAKE_STAGE_BUCKETS.get(mistake_stage)
+    relevant_buckets = _relevant_buckets(result)
 
     for bucket, value in values.items():
-        if selected_bucket is None or bucket == selected_bucket:
+        if bucket not in relevant_buckets:
+            continue
+        if selected_buckets is None or bucket in selected_buckets:
             _increment_counter(stats[bucket], value)
 
 
 def _decay_miss_buckets(stats: dict[str, Any], result: AnswerResult) -> None:
     reference = doomsday_reference(result.target)
-    _decrement_counter(stats["misses_by_month"], result.target.month)
-    _decrement_counter(stats["misses_by_offset"], reference.offset_days)
-    _decrement_counter(stats["misses_by_century"], (result.target.year // 100) * 100)
-    _decrement_counter(stats["misses_by_year_mod_100"], result.target.year % 100)
+    values = {
+        "misses_by_month": result.target.month,
+        "misses_by_offset": reference.offset_days,
+        "misses_by_century": (result.target.year // 100) * 100,
+        "misses_by_year": result.target.year,
+        "misses_by_year_mod_100": result.target.year % 100,
+    }
+
+    for bucket in _relevant_buckets(result):
+        _decrement_counter(stats[bucket], values[bucket])
 
 
 def _attempt_record(
@@ -209,6 +221,7 @@ def _attempt_record(
         "guess": result.guess,
         "correct_weekday": result.correct_weekday,
         "is_correct": result.is_correct,
+        "question_kind": result.question_kind,
         "mistake_stage": mistake_stage if not result.is_correct else None,
         "month": result.target.month,
         "year": result.target.year,
@@ -267,6 +280,17 @@ def _normalize_mistake_stage(value: object) -> str:
     if isinstance(value, str) and value in MISTAKE_STAGE_BUCKETS:
         return value
     return "unsure"
+
+
+def _relevant_buckets(result: AnswerResult) -> tuple[str, ...]:
+    year_buckets = (
+        "misses_by_century",
+        "misses_by_year",
+        "misses_by_year_mod_100",
+    )
+    if result.question_kind == "year_doomsday":
+        return year_buckets
+    return (*year_buckets, "misses_by_month", "misses_by_offset")
 
 
 def _quarantine_corrupt_stats(path: Path) -> Path | None:

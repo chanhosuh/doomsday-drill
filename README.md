@@ -46,6 +46,11 @@ After a wrong answer, the result popup asks which step caused trouble. Choosing
 the century anchor, year calculation, month anchor, or counting step reinforces
 only that part of future practice. `Not sure` reinforces all four dimensions.
 
+The login drill mixes complete-date questions with dedicated year-doomsday
+questions; about one question in four asks directly for a year's doomsday.
+Missed exact years are included in adaptive selection so repeated exposure can
+turn calculated year doomsdays into memorized ones.
+
 Skipped prompts are not recorded.
 
 Stats updates are written atomically, so an interrupted write does not damage the
@@ -154,6 +159,7 @@ Already implemented:
 - Stats persist in `~/Library/Application Support/Doomsday Drill/stats.json`.
 - The result popup shows accuracy and streaks.
 - Future dates bias toward missed months, offsets, centuries, and year-of-century values.
+- The drill includes adaptive year-doomsday questions for direct memorization.
 - The prompt includes a configurable reference link.
 
 Good next extensions:

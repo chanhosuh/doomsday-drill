@@ -48,6 +48,29 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(question.correct_weekday, weekday_name(question.target))
         self.assertIn("Conway route:", question.hint)
 
+    def test_year_doomsday_question_focuses_on_the_year(self):
+        question = make_question(rng=random.Random(7), mode="year_doomsday")
+
+        self.assertEqual(question.question_kind, "year_doomsday")
+        self.assertEqual((question.target.month, question.target.day), (4, 4))
+        self.assertIn(f"Doomsday fall in {question.target.year}", question.prompt)
+        self.assertEqual(
+            question.correct_weekday,
+            doomsday_weekday_name(question.target.year),
+        )
+        self.assertIn("Year-doomsday route:", question.hint)
+        self.assertNotIn("even-month double date", question.hint)
+
+        result = check_answer("Sunday", question.target, question.question_kind)
+        message = feedback_message(result)
+        self.assertIn("Worked year-doomsday route:", message)
+        self.assertNotIn("even-month double date", message)
+
+    def test_mixed_questions_include_both_kinds(self):
+        rng = random.Random(11)
+        kinds = {make_question(rng=rng, mode="mixed").question_kind for _ in range(40)}
+        self.assertEqual(kinds, {"date", "year_doomsday"})
+
     def test_feedback_includes_doomsday_reference(self):
         message = feedback_message(check_answer("sat", date(2026, 7, 4)))
         self.assertIn("Correct: Saturday.", message)

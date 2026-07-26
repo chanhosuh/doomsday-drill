@@ -31,6 +31,7 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats["current_streak"], 0)
         self.assertEqual(stats["misses_by_month"], {"7": 1})
         self.assertEqual(stats["misses_by_century"], {"2000": 1})
+        self.assertEqual(stats["misses_by_year"], {"2026": 1})
         self.assertEqual(stats["misses_by_year_mod_100"], {"26": 1})
         self.assertEqual(stats["recent_attempts"][0]["date"], "2026-07-04")
         self.assertEqual(stats["recent_attempts"][0]["mistake_stage"], "unsure")
@@ -56,6 +57,7 @@ class StatsTests(unittest.TestCase):
         )
 
         self.assertEqual(stats["misses_by_year_mod_100"], {"26": 1})
+        self.assertEqual(stats["misses_by_year"], {"2026": 1})
         self.assertEqual(stats["misses_by_month"], {})
         self.assertEqual(stats["misses_by_offset"], {})
         self.assertEqual(stats["misses_by_century"], {})
@@ -71,8 +73,27 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats["misses_by_month"], {"7": 1})
         self.assertEqual(stats["misses_by_offset"], {"-7": 1})
         self.assertEqual(stats["misses_by_century"], {"2000": 1})
+        self.assertEqual(stats["misses_by_year"], {"2026": 1})
         self.assertEqual(stats["misses_by_year_mod_100"], {"26": 1})
         self.assertEqual(stats["recent_attempts"][0]["mistake_stage"], "unsure")
+
+    def test_year_question_does_not_change_month_or_offset_buckets(self):
+        result = check_answer(
+            "Sunday",
+            date(2044, 4, 4),
+            question_kind="year_doomsday",
+        )
+        stats = record_attempt(empty_stats(), result, mistake_stage="unsure")
+
+        self.assertEqual(stats["misses_by_century"], {"2000": 1})
+        self.assertEqual(stats["misses_by_year"], {"2044": 1})
+        self.assertEqual(stats["misses_by_year_mod_100"], {"44": 1})
+        self.assertEqual(stats["misses_by_month"], {})
+        self.assertEqual(stats["misses_by_offset"], {})
+        self.assertEqual(
+            stats["recent_attempts"][0]["question_kind"],
+            "year_doomsday",
+        )
 
     def test_stats_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -139,6 +160,14 @@ class StatsTests(unittest.TestCase):
         target = adaptive_random_date(stats, rng=random.Random(1))
 
         self.assertEqual(target.month, 2)
+
+    def test_adaptive_random_date_can_repeat_an_exact_missed_year(self):
+        stats = empty_stats()
+        stats["misses_by_year"] = {"2044": 25}
+
+        target = adaptive_random_date(stats, rng=random.Random(1))
+
+        self.assertEqual(target.year, 2044)
 
 
 if __name__ == "__main__":

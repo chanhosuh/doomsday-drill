@@ -82,8 +82,12 @@ ADAPTIVE_BUCKETS = (
     "misses_by_month",
     "misses_by_offset",
     "misses_by_century",
+    "misses_by_year",
     "misses_by_year_mod_100",
 )
+YEAR_DOOMSDAY_PROBABILITY = 0.25
+QUESTION_KINDS = ("date", "year_doomsday")
+QUESTION_MODES = (*QUESTION_KINDS, "mixed")
 
 
 @dataclass(frozen=True)
@@ -92,6 +96,7 @@ class DrillQuestion:
     prompt: str
     correct_weekday: str
     hint: str
+    question_kind: str = "date"
 
 
 @dataclass(frozen=True)
@@ -100,6 +105,7 @@ class AnswerResult:
     guess: str
     correct_weekday: str
     is_correct: bool
+    question_kind: str = "date"
 
 
 @dataclass(frozen=True)
@@ -176,7 +182,20 @@ def make_question(
     end_year: int = 2100,
     rng: random.Random | None = None,
     stats: Mapping[str, object] | None = None,
+    mode: str = "date",
 ) -> DrillQuestion:
+    if mode not in QUESTION_MODES:
+        raise ValueError(f"unknown question mode: {mode}")
+
+    rng = rng or random
+    question_kind = mode
+    if mode == "mixed":
+        question_kind = (
+            "year_doomsday"
+            if rng.random() < YEAR_DOOMSDAY_PROBABILITY
+            else "date"
+        )
+
     target = (
         adaptive_random_date(
             stats=stats,
@@ -187,11 +206,23 @@ def make_question(
         if stats
         else random_date(start_year=start_year, end_year=end_year, rng=rng)
     )
+
+    if question_kind == "year_doomsday":
+        target = date(target.year, 4, 4)
+        return DrillQuestion(
+            target=target,
+            prompt=f"On which weekday does Doomsday fall in {target.year}?",
+            correct_weekday=doomsday_weekday_name(target.year),
+            hint=year_doomsday_hint(target.year),
+            question_kind=question_kind,
+        )
+
     return DrillQuestion(
         target=target,
         prompt=f"What day of the week was {format_date(target)}?",
         correct_weekday=weekday_name(target),
         hint=conway_hint(target),
+        question_kind=question_kind,
     )
 
 
@@ -211,7 +242,14 @@ def parse_weekday_answer(answer: str) -> str | None:
     return ANSWER_ALIASES.get(normalize_answer(answer))
 
 
-def check_answer(answer: str, target: date) -> AnswerResult:
+def check_answer(
+    answer: str,
+    target: date,
+    question_kind: str = "date",
+) -> AnswerResult:
+    if question_kind not in QUESTION_KINDS:
+        raise ValueError(f"unknown question kind: {question_kind}")
+
     correct_weekday = weekday_name(target)
     parsed = parse_weekday_answer(answer)
     return AnswerResult(
@@ -219,6 +257,7 @@ def check_answer(answer: str, target: date) -> AnswerResult:
         guess=answer,
         correct_weekday=correct_weekday,
         is_correct=parsed == correct_weekday,
+        question_kind=question_kind,
     )
 
 
@@ -334,6 +373,26 @@ def conway_hint(target: date) -> str:
 
     return (
         "Conway route:\n"
+        f"{_year_hint(calculation)}\n"
+        "Add the year shift to the century anchor, reducing by sevens.\n"
+        f"{anchor_mnemonic(reference.nearest_anchor)}\n"
+        f"{offset}\n"
+        "For weekday numbers, use Conway's verbal names: Sansday, Oneday, "
+        "Twosday, Treblesday, Foursday, Fiveday, Six-a-day."
+    )
+
+
+def year_doomsday_hint(year: int) -> str:
+    calculation = year_calculation(year)
+    return (
+        "Year-doomsday route:\n"
+        f"{_year_hint(calculation)}\n"
+        "Add the year shift to the century anchor, reducing by sevens."
+    )
+
+
+def _year_hint(calculation: YearCalculation) -> str:
+    return (
         f"Century anchor: {calculation.century_start}s -> "
         f"{calculation.century_anchor_weekday} "
         f"({weekday_number_name(calculation.century_anchor_index)}).\n"
@@ -344,12 +403,7 @@ def conway_hint(target: date) -> str:
         f"The year shift is {calculation.dozens} + {calculation.remainder} + "
         f"{calculation.fours} = {calculation.dozen_shift_raw}, or "
         f"{calculation.dozen_shift} mod 7.\n"
-        f"{odd_plus_eleven_hint(calculation.year_of_century)}\n"
-        "Add the year shift to the century anchor, reducing by sevens.\n"
-        f"{anchor_mnemonic(reference.nearest_anchor)}\n"
-        f"{offset}\n"
-        "For weekday numbers, use Conway's verbal names: Sansday, Oneday, "
-        "Twosday, Treblesday, Foursday, Fiveday, Six-a-day."
+        f"{odd_plus_eleven_hint(calculation.year_of_century)}"
     )
 
 
@@ -439,7 +493,11 @@ def feedback_message(result: AnswerResult) -> str:
         if result.is_correct
         else f"Nope. It was {result.correct_weekday}."
     )
-    worked = worked_solution(result.target)
+    worked = (
+        worked_year_solution(result.target.year)
+        if result.question_kind == "year_doomsday"
+        else worked_solution(result.target)
+    )
 
     return f"{status}\n\n{worked}"
 
@@ -471,6 +529,21 @@ def worked_solution(target: date) -> str:
 
     return (
         "Worked route:\n"
+        f"{_worked_year_calculation(calculation)}\n"
+        f"{anchor_mnemonic(reference.nearest_anchor)}\n"
+        f"{offset}"
+    )
+
+
+def worked_year_solution(year: int) -> str:
+    return (
+        "Worked year-doomsday route:\n"
+        f"{_worked_year_calculation(year_calculation(year))}"
+    )
+
+
+def _worked_year_calculation(calculation: YearCalculation) -> str:
+    return (
         f"Century anchor: {calculation.century_start}s -> "
         f"{calculation.century_anchor_weekday} "
         f"({weekday_number_name(calculation.century_anchor_index)}).\n"
@@ -484,9 +557,7 @@ def worked_solution(target: date) -> str:
         f"Fong-Walters Odd + 11 check: "
         f"{odd_plus_eleven_explanation(calculation.year_of_century)}\n"
         f"Year doomsday: {calculation.century_anchor_weekday} + "
-        f"{calculation.dozen_shift} = {calculation.doomsday_weekday}.\n"
-        f"{anchor_mnemonic(reference.nearest_anchor)}\n"
-        f"{offset}"
+        f"{calculation.dozen_shift} = {calculation.doomsday_weekday}."
     )
 
 
@@ -545,6 +616,8 @@ def _candidate_matches_bucket(candidate: date, bucket: str, wanted: int) -> bool
         return doomsday_reference(candidate).offset_days == wanted
     if bucket == "misses_by_century":
         return (candidate.year // 100) * 100 == wanted
+    if bucket == "misses_by_year":
+        return candidate.year == wanted
     if bucket == "misses_by_year_mod_100":
         return candidate.year % 100 == wanted
     return False

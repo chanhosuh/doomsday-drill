@@ -7,7 +7,7 @@ from .ui_mac import ask_weekday, show_message
 
 def run() -> int:
     stats = load_stats()
-    question = make_question(stats=stats)
+    question = make_question(stats=stats, mode="mixed")
     answer = ask_weekday(question.prompt, question.hint)
 
     if answer is None:
@@ -16,7 +16,7 @@ def run() -> int:
     if parse_weekday_answer(answer) is None:
         return 0
 
-    result = check_answer(answer, question.target)
+    result = check_answer(answer, question.target, question.question_kind)
     if result.is_correct:
         stats = record_attempt(stats, result)
         save_stats(stats)
@@ -27,6 +27,9 @@ def run() -> int:
     mistake_stage = show_message(
         f"{feedback_message(result)}\n\n{stats_summary(preview_stats)}",
         collect_mistake_stage=True,
+        mistake_stage_keys=("century", "year")
+        if question.question_kind == "year_doomsday"
+        else None,
     )
     stats = record_attempt(stats, result, mistake_stage=mistake_stage)
     save_stats(stats)

@@ -407,7 +407,11 @@ def _make_prompt_controller_class():
 _PromptController = _make_prompt_controller_class()
 
 
-def show_message(message: str, collect_mistake_stage: bool = False) -> str | None:
+def show_message(
+    message: str,
+    collect_mistake_stage: bool = False,
+    mistake_stage_keys: tuple[str, ...] | None = None,
+) -> str | None:
     from AppKit import NSAlert, NSMakeRect, NSPopUpButton
 
     _activate_app()
@@ -419,12 +423,20 @@ def show_message(message: str, collect_mistake_stage: bool = False) -> str | Non
     alert.setInformativeText_(message)
 
     stage_popup = None
+    stage_options = MISTAKE_STAGE_OPTIONS
     if collect_mistake_stage:
+        if mistake_stage_keys is not None:
+            allowed = set(mistake_stage_keys)
+            stage_options = tuple(
+                option
+                for option in MISTAKE_STAGE_OPTIONS
+                if option[1] == "unsure" or option[1] in allowed
+            )
         stage_popup = NSPopUpButton.alloc().initWithFrame_pullsDown_(
             NSMakeRect(0.0, 0.0, 240.0, 26.0),
             False,
         )
-        stage_popup.addItemsWithTitles_([label for label, _ in MISTAKE_STAGE_OPTIONS])
+        stage_popup.addItemsWithTitles_([label for label, _ in stage_options])
         stage_popup.setAccessibilityLabel_("Mistake stage")
         alert.setAccessoryView_(stage_popup)
 
@@ -434,4 +446,4 @@ def show_message(message: str, collect_mistake_stage: bool = False) -> str | Non
     if stage_popup is None:
         return None
 
-    return MISTAKE_STAGE_OPTIONS[stage_popup.indexOfSelectedItem()][1]
+    return stage_options[stage_popup.indexOfSelectedItem()][1]
