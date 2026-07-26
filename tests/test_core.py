@@ -50,7 +50,8 @@ class CoreTests(unittest.TestCase):
     def test_feedback_includes_doomsday_reference(self):
         message = feedback_message(check_answer("sat", date(2026, 7, 4)))
         self.assertIn("Correct: Saturday.", message)
-        self.assertIn("For 2026, doomsday is Saturday.", message)
+        self.assertIn("Worked route:", message)
+        self.assertIn("Year doomsday: Tuesday + 4 = Saturday.", message)
 
     def test_conway_hint_gives_scaffold_without_final_weekday(self):
         hint = conway_hint(date(2026, 7, 4))
@@ -60,6 +61,19 @@ class CoreTests(unittest.TestCase):
         self.assertIn("7 days before", hint)
         self.assertIn("Sansday, Oneday, Twosday", hint)
         self.assertNotIn("Saturday", hint)
+
+    def test_feedback_explains_2044_year_calculation(self):
+        message = feedback_message(check_answer("Monday", date(2044, 8, 12)))
+        self.assertIn("Nope. It was Friday.", message)
+        self.assertIn("Century anchor: 2000s -> Tuesday", message)
+        self.assertIn("Year part: 44 = 3 dozen(s) + 8", message)
+        self.assertIn("3 + 8 + 2 = 13, which is 6 mod 7", message)
+        self.assertIn("Odd + 11 check: 44 -> 22", message)
+        self.assertIn("-22 mod 7 gives 6", message)
+        self.assertIn("Year doomsday: Tuesday + 6 = Monday.", message)
+        self.assertIn("Use the even-month double date: 8/8 is a doomsday.", message)
+        self.assertIn("August 12, 2044 is 4 day(s) after August 8, 2044", message)
+        self.assertIn("Monday -> Tuesday -> Wednesday -> Thursday -> Friday", message)
 
 
 if __name__ == "__main__":

@@ -110,6 +110,25 @@ class DoomsdayReference:
     offset_days: int
 
 
+@dataclass(frozen=True)
+class YearCalculation:
+    year: int
+    century_start: int
+    year_of_century: int
+    century_anchor_index: int
+    century_anchor_weekday: str
+    dozens: int
+    remainder: int
+    fours: int
+    dozen_shift_raw: int
+    dozen_shift: int
+    odd_plus_eleven_steps: tuple[int, ...]
+    odd_plus_eleven_total: int
+    odd_plus_eleven_shift: int
+    doomsday_index: int
+    doomsday_weekday: str
+
+
 def random_date(
     start_year: int = 1900,
     end_year: int = 2100,
@@ -208,6 +227,23 @@ def century_anchor_sunday_zero(year: int) -> int:
     return (5 * (century % 4) + 2) % 7
 
 
+def weekday_name_sunday_zero(index: int) -> str:
+    return SUNDAY_ZERO_WEEKDAY_NAMES[index % 7]
+
+
+def weekday_number_name(index: int) -> str:
+    names = (
+        "Sansday",
+        "Oneday",
+        "Twosday",
+        "Treblesday",
+        "Foursday",
+        "Fiveday",
+        "Six-a-day",
+    )
+    return names[index % 7]
+
+
 def doomsday_weekday_sunday_zero(year: int) -> int:
     year_of_century = year % 100
     return (
@@ -219,6 +255,37 @@ def doomsday_weekday_sunday_zero(year: int) -> int:
 
 def doomsday_weekday_name(year: int) -> str:
     return SUNDAY_ZERO_WEEKDAY_NAMES[doomsday_weekday_sunday_zero(year)]
+
+
+def year_calculation(year: int) -> YearCalculation:
+    century_start = (year // 100) * 100
+    year_of_century = year % 100
+    century_anchor = century_anchor_sunday_zero(year)
+    dozens = year_of_century // 12
+    remainder = year_of_century % 12
+    fours = remainder // 4
+    dozen_shift_raw = dozens + remainder + fours
+    dozen_shift = dozen_shift_raw % 7
+    odd_steps, odd_total, odd_shift = odd_plus_eleven_calculation(year_of_century)
+    doomsday_index = (century_anchor + dozen_shift) % 7
+
+    return YearCalculation(
+        year=year,
+        century_start=century_start,
+        year_of_century=year_of_century,
+        century_anchor_index=century_anchor,
+        century_anchor_weekday=weekday_name_sunday_zero(century_anchor),
+        dozens=dozens,
+        remainder=remainder,
+        fours=fours,
+        dozen_shift_raw=dozen_shift_raw,
+        dozen_shift=dozen_shift,
+        odd_plus_eleven_steps=odd_steps,
+        odd_plus_eleven_total=odd_total,
+        odd_plus_eleven_shift=odd_shift,
+        doomsday_index=doomsday_index,
+        doomsday_weekday=weekday_name_sunday_zero(doomsday_index),
+    )
 
 
 def nearest_doomsday_anchor(target: date) -> date:
@@ -243,11 +310,7 @@ def doomsday_reference(target: date) -> DoomsdayReference:
 
 def conway_hint(target: date) -> str:
     reference = doomsday_reference(target)
-    year_of_century = target.year % 100
-    century_start = (target.year // 100) * 100
-    dozens = year_of_century // 12
-    remainder = year_of_century % 12
-    fours = remainder // 4
+    calculation = year_calculation(target.year)
 
     if reference.offset_days == 0:
         offset = "The target date is itself a doomsday anchor."
@@ -264,10 +327,14 @@ def conway_hint(target: date) -> str:
 
     return (
         "Conway route:\n"
-        f"For {year_of_century:02d}, count {dozens} dozen(s), "
-        f"{remainder} extra year(s), and {fours} four(s) in the extra years.\n"
-        f"{odd_plus_eleven_hint(year_of_century)}\n"
-        f"Add those to the {century_start}s century anchor, reducing by sevens.\n"
+        f"Century anchor: {calculation.century_start}s -> "
+        f"{calculation.century_anchor_weekday} "
+        f"({weekday_number_name(calculation.century_anchor_index)}).\n"
+        f"For {calculation.year_of_century:02d}, count "
+        f"{calculation.dozens} dozen(s), {calculation.remainder} extra year(s), "
+        f"and {calculation.fours} four(s) in the extra years.\n"
+        f"{odd_plus_eleven_hint(calculation.year_of_century)}\n"
+        "Add the year shift to the century anchor, reducing by sevens.\n"
         f"{anchor_mnemonic(reference.nearest_anchor)}\n"
         f"{offset}\n"
         "For weekday numbers, use Conway's verbal names: Sansday, Oneday, "
@@ -276,24 +343,31 @@ def conway_hint(target: date) -> str:
 
 
 def odd_plus_eleven_hint(year_of_century: int) -> str:
+    steps, total, shift = odd_plus_eleven_calculation(year_of_century)
+    display_steps = [f"{steps[0]:02d}", *[str(step) for step in steps[1:]]]
+    return (
+        f"Odd + 11 shortcut: {' -> '.join(display_steps)}; "
+        f"use {shift} as the year shift."
+    )
+
+
+def odd_plus_eleven_calculation(year_of_century: int) -> tuple[tuple[int, ...], int, int]:
     total = year_of_century
-    steps = [f"{total:02d}"]
+    steps = [total]
 
     if total % 2:
         total += 11
-        steps.append(str(total))
+        steps.append(total)
 
     total //= 2
-    steps.append(str(total))
+    steps.append(total)
 
     if total % 2:
         total += 11
-        steps.append(str(total))
+        steps.append(total)
 
-    return (
-        f"Odd + 11 shortcut: {' -> '.join(steps)}; "
-        f"use 7 - ({total} mod 7) as the shift."
-    )
+    shift = (-total) % 7
+    return tuple(steps), total, shift
 
 
 def anchor_mnemonic(anchor: date) -> str:
@@ -330,26 +404,71 @@ def feedback_message(result: AnswerResult) -> str:
         if result.is_correct
         else f"Nope. It was {result.correct_weekday}."
     )
-    reference = doomsday_reference(result.target)
+    worked = worked_solution(result.target)
+
+    return f"{status}\n\n{worked}"
+
+
+def worked_solution(target: date) -> str:
+    reference = doomsday_reference(target)
+    calculation = year_calculation(target.year)
 
     if reference.offset_days == 0:
-        offset = "The target date is itself a doomsday anchor."
-    elif reference.offset_days > 0:
         offset = (
-            f"The target date is {reference.offset_days} day(s) after "
-            f"{format_date(reference.nearest_anchor)}."
+            f"{format_date(target)} is itself a doomsday anchor, so it is "
+            f"{reference.doomsday_weekday}."
+        )
+    elif reference.offset_days > 0:
+        steps = reference.offset_days % 7
+        offset = (
+            f"{format_date(target)} is {reference.offset_days} day(s) after "
+            f"{format_date(reference.nearest_anchor)}. Count forward "
+            f"{steps}: {weekday_walk(calculation.doomsday_index, steps)}."
         )
     else:
+        steps = abs(reference.offset_days) % 7
         offset = (
-            f"The target date is {abs(reference.offset_days)} day(s) before "
-            f"{format_date(reference.nearest_anchor)}."
+            f"{format_date(target)} is {abs(reference.offset_days)} day(s) before "
+            f"{format_date(reference.nearest_anchor)}. Count back "
+            f"{steps}: {weekday_walk(calculation.doomsday_index, -steps)}."
         )
 
+    odd_steps = " -> ".join(
+        [f"{calculation.odd_plus_eleven_steps[0]:02d}"]
+        + [str(step) for step in calculation.odd_plus_eleven_steps[1:]]
+    )
+
     return (
-        f"{status}\n\n"
-        f"For {reference.year}, doomsday is {reference.doomsday_weekday}.\n"
+        "Worked route:\n"
+        f"Century anchor: {calculation.century_start}s -> "
+        f"{calculation.century_anchor_weekday} "
+        f"({weekday_number_name(calculation.century_anchor_index)}).\n"
+        f"Year part: {calculation.year_of_century:02d} = "
+        f"{calculation.dozens} dozen(s) + {calculation.remainder}; "
+        f"then add {calculation.fours} four(s). "
+        f"{calculation.dozens} + {calculation.remainder} + "
+        f"{calculation.fours} = {calculation.dozen_shift_raw}, "
+        f"which is {calculation.dozen_shift} mod 7.\n"
+        f"Odd + 11 check: {odd_steps}; "
+        f"-{calculation.odd_plus_eleven_total} mod 7 gives "
+        f"{calculation.odd_plus_eleven_shift}.\n"
+        f"Year doomsday: {calculation.century_anchor_weekday} + "
+        f"{calculation.dozen_shift} = {calculation.doomsday_weekday}.\n"
+        f"{anchor_mnemonic(reference.nearest_anchor)}\n"
         f"{offset}"
     )
+
+
+def weekday_walk(start_index: int, steps: int) -> str:
+    if steps == 0:
+        return weekday_name_sunday_zero(start_index)
+
+    direction = 1 if steps > 0 else -1
+    names = [weekday_name_sunday_zero(start_index)]
+    for step in range(1, abs(steps) + 1):
+        names.append(weekday_name_sunday_zero(start_index + (direction * step)))
+
+    return " -> ".join(names)
 
 
 def _weighted_items(value: object) -> list[tuple[int, int]]:
