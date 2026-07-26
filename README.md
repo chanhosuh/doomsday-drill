@@ -155,6 +155,18 @@ Remove the LaunchAgent symlink:
 rm ~/Library/LaunchAgents/com.example.doomsday-drill.plist
 ```
 
+Those two steps completely disable automatic launches. The remaining saved data
+and logs are inert, but can also be removed if they are no longer wanted:
+
+```text
+~/Library/Application Support/Doomsday Drill/
+/tmp/com.example.doomsday-drill.out.log
+/tmp/com.example.doomsday-drill.err.log
+```
+
+The Application Support directory contains drill history and adaptive stats.
+The `/tmp` files contain launchd output and errors.
+
 If you edit the plist after it has already been loaded, unload and load it again:
 
 ```bash
