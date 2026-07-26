@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .core import check_answer, feedback_message, make_question
+from .core import check_answer, feedback_message, make_question, parse_weekday_answer
 from .stats import load_stats, record_attempt, save_stats, stats_summary
 from .ui_mac import ask_weekday, show_message
 
@@ -11,6 +11,9 @@ def run() -> int:
     answer = ask_weekday(question.prompt, question.hint)
 
     if answer is None:
+        return 0
+
+    if parse_weekday_answer(answer) is None:
         return 0
 
     result = check_answer(answer, question.target)

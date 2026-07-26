@@ -44,6 +44,10 @@ dominating once they improve.
 
 Skipped prompts are not recorded.
 
+Stats updates are written atomically, so an interrupted write does not damage the
+previous file. If malformed JSON is found, it is moved aside as a timestamped
+`stats.corrupt-*.json` file and the drill starts with fresh stats.
+
 ## Reference Link
 
 The prompt includes a `Reference` button. By default it opens:

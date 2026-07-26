@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
+import tempfile
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -37,7 +40,15 @@ def load_stats(path: Path = DEFAULT_STATS_PATH) -> dict[str, Any]:
     try:
         with path.open("r", encoding="utf-8") as handle:
             loaded = json.load(handle)
-    except (OSError, json.JSONDecodeError):
+    except json.JSONDecodeError:
+        backup_path = _quarantine_corrupt_stats(path)
+        if backup_path is not None:
+            print(
+                f"Doomsday Drill: moved corrupt stats to {backup_path}",
+                file=sys.stderr,
+            )
+        return empty_stats()
+    except OSError:
         return empty_stats()
 
     return normalize_stats(loaded)
@@ -45,9 +56,28 @@ def load_stats(path: Path = DEFAULT_STATS_PATH) -> dict[str, Any]:
 
 def save_stats(stats: dict[str, Any], path: Path = DEFAULT_STATS_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(normalize_stats(stats), handle, indent=2, sort_keys=True)
-        handle.write("\n")
+    temp_path: Path | None = None
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+            json.dump(normalize_stats(stats), handle, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+
+        temp_path.replace(path)
+    except BaseException:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
 
 
 def normalize_stats(value: object) -> dict[str, Any]:
@@ -205,3 +235,15 @@ def _safe_int(value: object, fallback: int) -> int:
         return fallback
 
     return max(0, parsed)
+
+
+def _quarantine_corrupt_stats(path: Path) -> Path | None:
+    timestamp = datetime.now().astimezone().strftime("%Y%m%dT%H%M%S%f%z")
+    backup_path = path.with_name(f"{path.stem}.corrupt-{timestamp}{path.suffix}")
+
+    try:
+        path.replace(backup_path)
+    except OSError:
+        return None
+
+    return backup_path

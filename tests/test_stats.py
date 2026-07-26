@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from datetime import date, datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from doomsday_drill.core import adaptive_random_date, check_answer
 from doomsday_drill.stats import (
@@ -61,6 +62,38 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(loaded["total_attempts"], 1)
         self.assertEqual(loaded["correct_attempts"], 1)
         self.assertEqual(loaded["current_streak"], 1)
+
+    def test_failed_save_preserves_existing_stats(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stats.json"
+            path.write_text('{"total_attempts": 7}\n', encoding="utf-8")
+
+            with patch("doomsday_drill.stats.json.dump", side_effect=OSError("disk full")):
+                with self.assertRaises(OSError):
+                    save_stats(empty_stats(), path=path)
+
+            self.assertEqual(
+                path.read_text(encoding="utf-8"),
+                '{"total_attempts": 7}\n',
+            )
+            self.assertEqual(list(path.parent.glob(".stats.json.*.tmp")), [])
+
+    def test_load_quarantines_malformed_stats(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stats.json"
+            path.write_text('{"total_attempts":', encoding="utf-8")
+
+            with patch("doomsday_drill.stats.sys.stderr"):
+                loaded = load_stats(path=path)
+
+            backups = list(path.parent.glob("stats.corrupt-*.json"))
+            self.assertEqual(loaded, empty_stats())
+            self.assertFalse(path.exists())
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(
+                backups[0].read_text(encoding="utf-8"),
+                '{"total_attempts":',
+            )
 
     def test_stats_summary(self):
         stats = record_attempt(

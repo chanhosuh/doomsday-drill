@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .config import REFERENCE_URL
+from .core import parse_weekday_answer
 
 
 def _activate_app():
@@ -42,6 +43,14 @@ def _label(text: str, font_size: float, selectable: bool = False):
     cell.setScrollable_(False)
     cell.setLineBreakMode_(NSLineBreakByWordWrapping)
 
+    return field
+
+
+def _error_label():
+    from AppKit import NSColor
+
+    field = _label("", 11.0)
+    field.setTextColor_(NSColor.systemRedColor())
     return field
 
 
@@ -179,6 +188,10 @@ def _string_value(field) -> str:
     return str(field.stringValue())
 
 
+def _set_string_value(field, value: str) -> None:
+    field.setStringValue_(value)
+
+
 def _content_view(window):
     return window.contentView()
 
@@ -205,11 +218,12 @@ def _set_title(control, title: str) -> None:
 
 class _PromptControllerBase:
     WIDTH = 440.0
-    COLLAPSED_HEIGHT = 180.0
-    EXPANDED_HEIGHT = 350.0
+    COLLAPSED_HEIGHT = 204.0
+    EXPANDED_HEIGHT = 374.0
     MARGIN = 20.0
     PROMPT_HEIGHT = 38.0
     ENTRY_HEIGHT = 24.0
+    ERROR_HEIGHT = 18.0
     DISCLOSURE_HEIGHT = 24.0
     HINT_HEIGHT = 156.0
     BUTTON_WIDTH = 82.0
@@ -223,6 +237,8 @@ class _PromptControllerBase:
         content = _content_view(self.window)
         self.prompt_field = _label(self.prompt, 14.0)
         self.answer_field = _text_entry()
+        self.answer_field.setDelegate_(self)
+        self.error_field = _error_label()
         self.disclosure = _disclosure_button(self)
         self.hint_field = _label(self.hint, 12.0, selectable=True)
         self.reference_button = _target_action_button("Reference", self, "reference:")
@@ -236,6 +252,7 @@ class _PromptControllerBase:
         for view in (
             self.prompt_field,
             self.answer_field,
+            self.error_field,
             self.disclosure,
             self.hint_field,
             self.reference_button,
@@ -258,7 +275,10 @@ class _PromptControllerBase:
         y -= 34.0
         _set_frame(self.answer_field, self.MARGIN, y, width, self.ENTRY_HEIGHT)
 
-        y -= 34.0
+        y -= 22.0
+        _set_frame(self.error_field, self.MARGIN, y, width, self.ERROR_HEIGHT)
+
+        y -= 30.0
         _set_frame(self.disclosure, self.MARGIN, y, width, self.DISCLOSURE_HEIGHT)
 
         if expanded:
@@ -348,7 +368,19 @@ def _make_prompt_controller_class():
             self.window.center()
 
         def check_(self, sender):
-            self._finish(_string_value(self.answer_field))
+            answer = _string_value(self.answer_field)
+            if parse_weekday_answer(answer) is None:
+                _set_string_value(
+                    self.error_field,
+                    "Enter a weekday name or abbreviation.",
+                )
+                _set_first_responder(self.window, self.answer_field)
+                return
+
+            self._finish(answer)
+
+        def controlTextDidChange_(self, notification):
+            _set_string_value(self.error_field, "")
 
         def reference_(self, sender):
             _open_url(self.reference_url)
