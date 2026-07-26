@@ -63,6 +63,11 @@ John Horton Conway, "Tomorrow is the Day After Doomsday,"
 Eureka 36, pp. 28-31, October 1973.
 ```
 
+The drill also teaches the later Odd + 11 shortcut as an alternative way to
+calculate the year shift. It was introduced by Chamberlain Fong and Michael K.
+Walters in [Methods for Accelerating Conway's Doomsday Algorithm (part
+2)](https://arxiv.org/abs/1010.0765).
+
 I have not found a clearly authorized public PDF to bundle with this repo. To
 use a different source URL temporarily, set `DOOMSDAY_REFERENCE_URL` before
 running the app. For launchd, add it under an `EnvironmentVariables` key in the

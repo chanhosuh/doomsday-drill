@@ -9,6 +9,7 @@ from doomsday_drill.core import (
     feedback_message,
     make_question,
     nearest_doomsday_anchor,
+    odd_plus_eleven_hint,
     parse_weekday_answer,
     weekday_name,
 )
@@ -55,10 +56,15 @@ class CoreTests(unittest.TestCase):
 
     def test_conway_hint_gives_scaffold_without_final_weekday(self):
         hint = conway_hint(date(2026, 7, 4))
-        self.assertIn("For 26, count 2 dozen(s), 2 extra year(s)", hint)
-        self.assertIn("Odd + 11 shortcut: 26 -> 13 -> 24", hint)
+        self.assertIn("Conway year method: 26 is 2 dozen plus 2 extra years", hint)
+        self.assertIn("The year shift is 2 + 2 + 0 = 4, or 4 mod 7", hint)
+        self.assertIn("Fong-Walters Odd + 11 alternative", hint)
+        self.assertIn("It is even, so halve it: 13", hint)
+        self.assertIn("13 is odd, so add 11: 24", hint)
+        self.assertIn("Negate modulo 7: -24 gives a year shift of 4", hint)
         self.assertIn("7-11 pair: 7/11", hint)
         self.assertIn("7 days before", hint)
+        self.assertIn("an exact number of weeks, so the weekday is unchanged", hint)
         self.assertIn("Sansday, Oneday, Twosday", hint)
         self.assertNotIn("Saturday", hint)
 
@@ -66,14 +72,23 @@ class CoreTests(unittest.TestCase):
         message = feedback_message(check_answer("Monday", date(2044, 8, 12)))
         self.assertIn("Nope. It was Friday.", message)
         self.assertIn("Century anchor: 2000s -> Tuesday", message)
-        self.assertIn("Year part: 44 = 3 dozen(s) + 8", message)
+        self.assertIn("Conway year method: 44 = 3 dozen + 8 extra years", message)
         self.assertIn("3 + 8 + 2 = 13, which is 6 mod 7", message)
-        self.assertIn("Odd + 11 check: 44 -> 22", message)
-        self.assertIn("-22 mod 7 gives 6", message)
+        self.assertIn("Fong-Walters Odd + 11 check", message)
+        self.assertIn("It is even, so halve it: 22", message)
+        self.assertIn("22 is even, so leave it unchanged", message)
+        self.assertIn("Negate modulo 7: -22 gives a year shift of 6", message)
         self.assertIn("Year doomsday: Tuesday + 6 = Monday.", message)
         self.assertIn("Use the even-month double date: 8/8 is a doomsday.", message)
-        self.assertIn("August 12, 2044 is 4 day(s) after August 8, 2044", message)
+        self.assertIn("August 12, 2044 is 4 days after August 8, 2044", message)
         self.assertIn("Monday -> Tuesday -> Wednesday -> Thursday -> Friday", message)
+
+    def test_odd_plus_eleven_explains_both_odd_steps(self):
+        hint = odd_plus_eleven_hint(57)
+        self.assertIn("57 is odd, so add 11: 68", hint)
+        self.assertIn("Halve it: 34", hint)
+        self.assertIn("34 is even, so leave it unchanged", hint)
+        self.assertIn("Negate modulo 7: -34 gives a year shift of 1", hint)
 
 
 if __name__ == "__main__":

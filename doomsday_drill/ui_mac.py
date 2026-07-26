@@ -219,13 +219,13 @@ def _set_title(control, title: str) -> None:
 class _PromptControllerBase:
     WIDTH = 440.0
     COLLAPSED_HEIGHT = 204.0
-    EXPANDED_HEIGHT = 374.0
+    EXPANDED_HEIGHT = 418.0
     MARGIN = 20.0
     PROMPT_HEIGHT = 38.0
     ENTRY_HEIGHT = 24.0
     ERROR_HEIGHT = 18.0
     DISCLOSURE_HEIGHT = 24.0
-    HINT_HEIGHT = 156.0
+    HINT_HEIGHT = 200.0
     BUTTON_WIDTH = 82.0
     REFERENCE_BUTTON_WIDTH = 104.0
     BUTTON_HEIGHT = 32.0

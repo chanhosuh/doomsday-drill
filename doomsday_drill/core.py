@@ -318,21 +318,32 @@ def conway_hint(target: date) -> str:
         direction = "after" if reference.offset_days > 0 else "before"
         steps = abs(reference.offset_days) % 7
         plural = "" if abs(reference.offset_days) == 1 else "s"
-        step_plural = "" if steps == 1 else "s"
-        offset = (
-            f"The target is {abs(reference.offset_days)} day{plural} {direction} "
-            f"{format_date(reference.nearest_anchor)}, so move {steps} "
-            f"weekday step{step_plural} modulo 7."
-        )
+        if steps == 0:
+            offset = (
+                f"The target is {abs(reference.offset_days)} days {direction} "
+                f"{format_date(reference.nearest_anchor)}: an exact number of "
+                "weeks, so the weekday is unchanged."
+            )
+        else:
+            step_plural = "" if steps == 1 else "s"
+            offset = (
+                f"The target is {abs(reference.offset_days)} day{plural} {direction} "
+                f"{format_date(reference.nearest_anchor)}, so move {steps} "
+                f"weekday step{step_plural} modulo 7."
+            )
 
     return (
         "Conway route:\n"
         f"Century anchor: {calculation.century_start}s -> "
         f"{calculation.century_anchor_weekday} "
         f"({weekday_number_name(calculation.century_anchor_index)}).\n"
-        f"For {calculation.year_of_century:02d}, count "
-        f"{calculation.dozens} dozen(s), {calculation.remainder} extra year(s), "
-        f"and {calculation.fours} four(s) in the extra years.\n"
+        f"Conway year method: {calculation.year_of_century:02d} is "
+        f"{calculation.dozens} dozen plus "
+        f"{_count(calculation.remainder, 'extra year')}; add "
+        f"{_count(calculation.fours, 'complete group')} of four in the remainder. "
+        f"The year shift is {calculation.dozens} + {calculation.remainder} + "
+        f"{calculation.fours} = {calculation.dozen_shift_raw}, or "
+        f"{calculation.dozen_shift} mod 7.\n"
         f"{odd_plus_eleven_hint(calculation.year_of_century)}\n"
         "Add the year shift to the century anchor, reducing by sevens.\n"
         f"{anchor_mnemonic(reference.nearest_anchor)}\n"
@@ -343,12 +354,36 @@ def conway_hint(target: date) -> str:
 
 
 def odd_plus_eleven_hint(year_of_century: int) -> str:
-    steps, total, shift = odd_plus_eleven_calculation(year_of_century)
-    display_steps = [f"{steps[0]:02d}", *[str(step) for step in steps[1:]]]
     return (
-        f"Odd + 11 shortcut: {' -> '.join(display_steps)}; "
-        f"use {shift} as the year shift."
+        "Fong-Walters Odd + 11 alternative: "
+        f"{odd_plus_eleven_explanation(year_of_century)}"
     )
+
+
+def odd_plus_eleven_explanation(year_of_century: int) -> str:
+    value = year_of_century
+    sentences = [f"Start with {value:02d}."]
+
+    if value % 2:
+        next_value = value + 11
+        sentences.append(f"{value} is odd, so add 11: {next_value}.")
+        value = next_value
+        value //= 2
+        sentences.append(f"Halve it: {value}.")
+    else:
+        value //= 2
+        sentences.append(f"It is even, so halve it: {value}.")
+
+    if value % 2:
+        next_value = value + 11
+        sentences.append(f"{value} is odd, so add 11: {next_value}.")
+        value = next_value
+    else:
+        sentences.append(f"{value} is even, so leave it unchanged.")
+
+    shift = (-value) % 7
+    sentences.append(f"Negate modulo 7: -{value} gives a year shift of {shift}.")
+    return " ".join(sentences)
 
 
 def odd_plus_eleven_calculation(year_of_century: int) -> tuple[tuple[int, ...], int, int]:
@@ -421,37 +456,33 @@ def worked_solution(target: date) -> str:
     elif reference.offset_days > 0:
         steps = reference.offset_days % 7
         offset = (
-            f"{format_date(target)} is {reference.offset_days} day(s) after "
+            f"{format_date(target)} is {_count(reference.offset_days, 'day')} after "
             f"{format_date(reference.nearest_anchor)}. Count forward "
             f"{steps}: {weekday_walk(calculation.doomsday_index, steps)}."
         )
     else:
         steps = abs(reference.offset_days) % 7
         offset = (
-            f"{format_date(target)} is {abs(reference.offset_days)} day(s) before "
+            f"{format_date(target)} is "
+            f"{_count(abs(reference.offset_days), 'day')} before "
             f"{format_date(reference.nearest_anchor)}. Count back "
             f"{steps}: {weekday_walk(calculation.doomsday_index, -steps)}."
         )
-
-    odd_steps = " -> ".join(
-        [f"{calculation.odd_plus_eleven_steps[0]:02d}"]
-        + [str(step) for step in calculation.odd_plus_eleven_steps[1:]]
-    )
 
     return (
         "Worked route:\n"
         f"Century anchor: {calculation.century_start}s -> "
         f"{calculation.century_anchor_weekday} "
         f"({weekday_number_name(calculation.century_anchor_index)}).\n"
-        f"Year part: {calculation.year_of_century:02d} = "
-        f"{calculation.dozens} dozen(s) + {calculation.remainder}; "
-        f"then add {calculation.fours} four(s). "
+        f"Conway year method: {calculation.year_of_century:02d} = "
+        f"{calculation.dozens} dozen + "
+        f"{_count(calculation.remainder, 'extra year')}; then add "
+        f"{_count(calculation.fours, 'complete group')} of four. "
         f"{calculation.dozens} + {calculation.remainder} + "
         f"{calculation.fours} = {calculation.dozen_shift_raw}, "
         f"which is {calculation.dozen_shift} mod 7.\n"
-        f"Odd + 11 check: {odd_steps}; "
-        f"-{calculation.odd_plus_eleven_total} mod 7 gives "
-        f"{calculation.odd_plus_eleven_shift}.\n"
+        f"Fong-Walters Odd + 11 check: "
+        f"{odd_plus_eleven_explanation(calculation.year_of_century)}\n"
         f"Year doomsday: {calculation.century_anchor_weekday} + "
         f"{calculation.dozen_shift} = {calculation.doomsday_weekday}.\n"
         f"{anchor_mnemonic(reference.nearest_anchor)}\n"
@@ -469,6 +500,11 @@ def weekday_walk(start_index: int, steps: int) -> str:
         names.append(weekday_name_sunday_zero(start_index + (direction * step)))
 
     return " -> ".join(names)
+
+
+def _count(value: int, noun: str) -> str:
+    suffix = "" if value == 1 else "s"
+    return f"{value} {noun}{suffix}"
 
 
 def _weighted_items(value: object) -> list[tuple[int, int]]:
