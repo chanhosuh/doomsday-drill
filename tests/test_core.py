@@ -45,8 +45,20 @@ class CoreTests(unittest.TestCase):
     def test_make_question_can_use_seeded_rng(self):
         question = make_question(rng=random.Random(7))
         self.assertIn(str(question.target.year), question.prompt)
+        self.assertTrue(question.prompt.startswith("On which weekday does "))
+        self.assertTrue(question.prompt.endswith(" fall?"))
         self.assertEqual(question.correct_weekday, weekday_name(question.target))
         self.assertIn("Conway route:", question.hint)
+
+    def test_future_date_prompt_does_not_use_past_tense(self):
+        question = make_question(
+            start_year=2099,
+            end_year=2099,
+            rng=random.Random(3),
+        )
+
+        self.assertIn("2099", question.prompt)
+        self.assertNotIn(" was ", question.prompt)
 
     def test_year_doomsday_question_focuses_on_the_year(self):
         question = make_question(rng=random.Random(7), mode="year_doomsday")
@@ -93,8 +105,8 @@ class CoreTests(unittest.TestCase):
 
     def test_feedback_explains_2044_year_calculation(self):
         message = feedback_message(check_answer("Monday", date(2044, 8, 12)))
-        self.assertIn("Nope. It was Friday.", message)
-        self.assertIn("Century anchor: 2000s -> Tuesday", message)
+        self.assertIn("Not quite. The answer is Friday.", message)
+        self.assertIn("Century anchor: 2000-2099 -> Tuesday", message)
         self.assertIn("Conway year method: 44 = 3 dozen + 8 extra years", message)
         self.assertIn("3 + 8 + 2 = 13, which is 6 mod 7", message)
         self.assertIn("Fong-Walters Odd + 11 check", message)

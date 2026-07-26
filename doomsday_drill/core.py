@@ -219,7 +219,7 @@ def make_question(
 
     return DrillQuestion(
         target=target,
-        prompt=f"What day of the week was {format_date(target)}?",
+        prompt=f"On which weekday does {format_date(target)} fall?",
         correct_weekday=weekday_name(target),
         hint=conway_hint(target),
         question_kind=question_kind,
@@ -393,7 +393,7 @@ def year_doomsday_hint(year: int) -> str:
 
 def _year_hint(calculation: YearCalculation) -> str:
     return (
-        f"Century anchor: {calculation.century_start}s -> "
+        f"Century anchor: {_century_span(calculation)} -> "
         f"{calculation.century_anchor_weekday} "
         f"({weekday_number_name(calculation.century_anchor_index)}).\n"
         f"Conway year method: {calculation.year_of_century:02d} is "
@@ -491,7 +491,7 @@ def feedback_message(result: AnswerResult) -> str:
     status = (
         f"Correct: {result.correct_weekday}."
         if result.is_correct
-        else f"Nope. It was {result.correct_weekday}."
+        else f"Not quite. The answer is {result.correct_weekday}."
     )
     worked = (
         worked_year_solution(result.target.year)
@@ -544,7 +544,7 @@ def worked_year_solution(year: int) -> str:
 
 def _worked_year_calculation(calculation: YearCalculation) -> str:
     return (
-        f"Century anchor: {calculation.century_start}s -> "
+        f"Century anchor: {_century_span(calculation)} -> "
         f"{calculation.century_anchor_weekday} "
         f"({weekday_number_name(calculation.century_anchor_index)}).\n"
         f"Conway year method: {calculation.year_of_century:02d} = "
@@ -576,6 +576,10 @@ def weekday_walk(start_index: int, steps: int) -> str:
 def _count(value: int, noun: str) -> str:
     suffix = "" if value == 1 else "s"
     return f"{value} {noun}{suffix}"
+
+
+def _century_span(calculation: YearCalculation) -> str:
+    return f"{calculation.century_start}-{calculation.century_start + 99}"
 
 
 def _weighted_items(value: object) -> list[tuple[int, int]]:
