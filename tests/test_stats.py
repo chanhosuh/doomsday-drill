@@ -152,6 +152,23 @@ class StatsTests(unittest.TestCase):
 
         self.assertIn("1/1 correct (100%)", stats_summary(stats))
         self.assertIn("Current streak: 1", stats_summary(stats))
+        self.assertIn("Current focus: broad practice", stats_summary(stats))
+
+    def test_stats_summary_describes_adaptive_focus_without_year_duplicates(self):
+        stats = empty_stats()
+        stats["misses_by_year"] = {"2044": 3}
+        stats["misses_by_year_mod_100"] = {"44": 3}
+        stats["misses_by_century"] = {"2000": 3}
+        stats["misses_by_month"] = {"2": 2}
+        stats["misses_by_offset"] = {"4": 1}
+
+        summary = stats_summary(stats)
+
+        self.assertIn("2044 year doomsday", summary)
+        self.assertIn("February month anchor", summary)
+        self.assertIn("4 days after an anchor", summary)
+        self.assertNotIn("years ending in 44", summary)
+        self.assertNotIn("2000-2099 century anchor", summary)
 
     def test_adaptive_random_date_biases_toward_missed_month(self):
         stats = empty_stats()

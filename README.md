@@ -51,6 +51,9 @@ questions; about one question in four asks directly for a year's doomsday.
 Missed exact years are included in adaptive selection so repeated exposure can
 turn calculated year doomsdays into memorized ones.
 
+The result summary shows the current adaptive focus in plain language, with up
+to three priorities drawn from the strongest remaining miss buckets.
+
 Skipped prompts are not recorded.
 
 Stats updates are written atomically, so an interrupted write does not damage the

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import calendar
 import json
 import os
 import sys
@@ -167,8 +168,96 @@ def stats_summary(stats: dict[str, Any]) -> str:
     return (
         f"Stats: {correct}/{total} correct ({accuracy:.0f}%).\n"
         f"Current streak: {normalized['current_streak']}. "
-        f"Best streak: {normalized['longest_streak']}."
+        f"Best streak: {normalized['longest_streak']}.\n"
+        f"Current focus: {_adaptive_focus_summary(normalized)}."
     )
+
+
+def _adaptive_focus_summary(stats: dict[str, Any]) -> str:
+    specs = (
+        ("misses_by_year", 0),
+        ("misses_by_year_mod_100", 1),
+        ("misses_by_month", 2),
+        ("misses_by_offset", 3),
+        ("misses_by_century", 4),
+    )
+    candidates: list[tuple[int, int, str, int, str]] = []
+
+    for bucket, priority in specs:
+        counter = stats[bucket]
+        if not counter:
+            continue
+        key, weight = sorted(
+            counter.items(),
+            key=lambda item: (-item[1], int(item[0])),
+        )[0]
+        value = int(key)
+        candidates.append(
+            (weight, priority, bucket, value, _focus_label(bucket, value))
+        )
+
+    candidates.sort(key=lambda candidate: (-candidate[0], candidate[1]))
+    selected: list[tuple[int, int, str, int, str]] = []
+    for candidate in candidates:
+        if any(_focuses_overlap(candidate, existing) for existing in selected):
+            continue
+        selected.append(candidate)
+        if len(selected) == 3:
+            break
+
+    if not selected:
+        return "broad practice"
+    return "; ".join(candidate[4] for candidate in selected)
+
+
+def _focus_label(bucket: str, value: int) -> str:
+    if bucket == "misses_by_year":
+        return f"{value} year doomsday"
+    if bucket == "misses_by_year_mod_100":
+        return f"years ending in {value:02d}"
+    if bucket == "misses_by_month":
+        month = calendar.month_name[value] if 1 <= value <= 12 else f"month {value}"
+        return f"{month} month anchor"
+    if bucket == "misses_by_offset":
+        if value == 0:
+            return "dates on a doomsday anchor"
+        direction = "after" if value > 0 else "before"
+        return f"{_count(abs(value), 'day')} {direction} an anchor"
+    if bucket == "misses_by_century":
+        return f"{value}-{value + 99} century anchor"
+    raise ValueError(f"unknown focus bucket: {bucket}")
+
+
+def _focuses_overlap(
+    first: tuple[int, int, str, int, str],
+    second: tuple[int, int, str, int, str],
+) -> bool:
+    _, _, first_bucket, first_value, _ = first
+    _, _, second_bucket, second_value, _ = second
+    buckets = {first_bucket, second_bucket}
+
+    if buckets == {"misses_by_year", "misses_by_year_mod_100"}:
+        year = first_value if first_bucket == "misses_by_year" else second_value
+        ending = (
+            first_value
+            if first_bucket == "misses_by_year_mod_100"
+            else second_value
+        )
+        return year % 100 == ending
+
+    if buckets == {"misses_by_year", "misses_by_century"}:
+        year = first_value if first_bucket == "misses_by_year" else second_value
+        century = (
+            first_value if first_bucket == "misses_by_century" else second_value
+        )
+        return century <= year <= century + 99
+
+    return False
+
+
+def _count(value: int, noun: str) -> str:
+    suffix = "" if value == 1 else "s"
+    return f"{value} {noun}{suffix}"
 
 
 def _record_miss_buckets(
