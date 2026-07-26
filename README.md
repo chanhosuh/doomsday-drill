@@ -96,10 +96,17 @@ plist:
 </dict>
 ```
 
-## LaunchAgent
+## Login And Unlock LaunchAgent
 
-The included LaunchAgent runs the drill after your user session starts. It does
-not hook into macOS authentication and it does not block login.
+The included LaunchAgent starts a lightweight watcher after your graphical user
+session starts. It runs one drill at login and another after each screen unlock.
+It does not hook into macOS authentication, does not run on the lock screen, and
+does not block login or unlock.
+
+The watcher listens for the system's `com.apple.screenIsUnlocked` distributed
+notification and also observes AppKit's session-activation notification. Apple
+documents the notification mechanisms but not the screen-unlock notification
+name, so that exact hook may need adjustment on a future macOS release.
 
 First complete the setup above so `.venv/bin/python` exists and PyObjC is
 installed.
@@ -119,8 +126,9 @@ Run it once immediately to test:
 launchctl kickstart -k gui/$(id -u)/com.example.doomsday-drill
 ```
 
-After that, it should run once whenever you log into the graphical macOS
-session.
+After that, the watcher remains resident in your graphical session and presents
+the drill after login and each unlock. Duplicate notifications are suppressed,
+and a second drill is not opened while one is already active.
 
 Check whether launchd knows about it:
 

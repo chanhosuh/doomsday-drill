@@ -10,7 +10,7 @@
   <array>
     <string>/Users/example/git/doomsday-drill/.venv/bin/python</string>
     <string>-m</string>
-    <string>doomsday_drill</string>
+    <string>doomsday_drill.watcher</string>
   </array>
 
   <key>WorkingDirectory</key>
@@ -18,6 +18,12 @@
 
   <key>RunAtLoad</key>
   <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>ProcessType</key>
+  <string>Interactive</string>
 
   <key>LimitLoadToSessionType</key>
   <string>Aqua</string>
@@ -29,4 +35,3 @@
   <string>/tmp/com.example.doomsday-drill.err.log</string>
 </dict>
 </plist>
-
