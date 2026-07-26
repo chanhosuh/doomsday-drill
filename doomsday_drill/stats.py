@@ -15,11 +15,18 @@ from .core import AnswerResult, doomsday_reference, format_date
 APP_SUPPORT_DIR = Path.home() / "Library" / "Application Support" / "Doomsday Drill"
 DEFAULT_STATS_PATH = APP_SUPPORT_DIR / "stats.json"
 MAX_RECENT_ATTEMPTS = 200
+STATS_VERSION = 2
+MISTAKE_STAGE_BUCKETS = {
+    "century": "misses_by_century",
+    "year": "misses_by_year_mod_100",
+    "month_anchor": "misses_by_month",
+    "offset": "misses_by_offset",
+}
 
 
 def empty_stats() -> dict[str, Any]:
     return {
-        "version": 1,
+        "version": STATS_VERSION,
         "total_attempts": 0,
         "correct_attempts": 0,
         "current_streak": 0,
@@ -86,7 +93,6 @@ def normalize_stats(value: object) -> dict[str, Any]:
         return stats
 
     for key in (
-        "version",
         "total_attempts",
         "correct_attempts",
         "current_streak",
@@ -122,6 +128,7 @@ def record_attempt(
     stats: dict[str, Any],
     result: AnswerResult,
     attempted_at: datetime | None = None,
+    mistake_stage: str | None = None,
 ) -> dict[str, Any]:
     attempted_at = attempted_at or datetime.now().astimezone()
     updated = normalize_stats(deepcopy(stats))
@@ -139,9 +146,12 @@ def record_attempt(
         _decay_miss_buckets(updated, result)
     else:
         updated["current_streak"] = 0
-        _record_miss_buckets(updated, result)
+        mistake_stage = _normalize_mistake_stage(mistake_stage)
+        _record_miss_buckets(updated, result, mistake_stage)
 
-    updated["recent_attempts"].append(_attempt_record(result, attempted_at))
+    updated["recent_attempts"].append(
+        _attempt_record(result, attempted_at, mistake_stage)
+    )
     updated["recent_attempts"] = updated["recent_attempts"][-MAX_RECENT_ATTEMPTS:]
     return updated
 
@@ -159,12 +169,23 @@ def stats_summary(stats: dict[str, Any]) -> str:
     )
 
 
-def _record_miss_buckets(stats: dict[str, Any], result: AnswerResult) -> None:
+def _record_miss_buckets(
+    stats: dict[str, Any],
+    result: AnswerResult,
+    mistake_stage: str,
+) -> None:
     reference = doomsday_reference(result.target)
-    _increment_counter(stats["misses_by_month"], result.target.month)
-    _increment_counter(stats["misses_by_offset"], reference.offset_days)
-    _increment_counter(stats["misses_by_century"], (result.target.year // 100) * 100)
-    _increment_counter(stats["misses_by_year_mod_100"], result.target.year % 100)
+    values = {
+        "misses_by_month": result.target.month,
+        "misses_by_offset": reference.offset_days,
+        "misses_by_century": (result.target.year // 100) * 100,
+        "misses_by_year_mod_100": result.target.year % 100,
+    }
+    selected_bucket = MISTAKE_STAGE_BUCKETS.get(mistake_stage)
+
+    for bucket, value in values.items():
+        if selected_bucket is None or bucket == selected_bucket:
+            _increment_counter(stats[bucket], value)
 
 
 def _decay_miss_buckets(stats: dict[str, Any], result: AnswerResult) -> None:
@@ -175,7 +196,11 @@ def _decay_miss_buckets(stats: dict[str, Any], result: AnswerResult) -> None:
     _decrement_counter(stats["misses_by_year_mod_100"], result.target.year % 100)
 
 
-def _attempt_record(result: AnswerResult, attempted_at: datetime) -> dict[str, Any]:
+def _attempt_record(
+    result: AnswerResult,
+    attempted_at: datetime,
+    mistake_stage: str | None,
+) -> dict[str, Any]:
     reference = doomsday_reference(result.target)
     return {
         "attempted_at": attempted_at.isoformat(timespec="seconds"),
@@ -184,6 +209,7 @@ def _attempt_record(result: AnswerResult, attempted_at: datetime) -> dict[str, A
         "guess": result.guess,
         "correct_weekday": result.correct_weekday,
         "is_correct": result.is_correct,
+        "mistake_stage": mistake_stage if not result.is_correct else None,
         "month": result.target.month,
         "year": result.target.year,
         "century": (result.target.year // 100) * 100,
@@ -235,6 +261,12 @@ def _safe_int(value: object, fallback: int) -> int:
         return fallback
 
     return max(0, parsed)
+
+
+def _normalize_mistake_stage(value: object) -> str:
+    if isinstance(value, str) and value in MISTAKE_STAGE_BUCKETS:
+        return value
+    return "unsure"
 
 
 def _quarantine_corrupt_stats(path: Path) -> Path | None:

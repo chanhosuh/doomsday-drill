@@ -42,6 +42,10 @@ biases toward one missed bucket, such as a month or an offset from a nearby
 anchor. Correct answers decay the matching miss buckets, so old weak spots stop
 dominating once they improve.
 
+After a wrong answer, the result popup asks which step caused trouble. Choosing
+the century anchor, year calculation, month anchor, or counting step reinforces
+only that part of future practice. `Not sure` reinforces all four dimensions.
+
 Skipped prompts are not recorded.
 
 Stats updates are written atomically, so an interrupted write does not damage the

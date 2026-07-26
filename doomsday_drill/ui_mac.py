@@ -4,6 +4,15 @@ from .config import REFERENCE_URL
 from .core import parse_weekday_answer
 
 
+MISTAKE_STAGE_OPTIONS = (
+    ("Not sure", "unsure"),
+    ("Century anchor", "century"),
+    ("Year calculation", "year"),
+    ("Month anchor", "month_anchor"),
+    ("Counting from anchor", "offset"),
+)
+
+
 def _activate_app():
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
 
@@ -398,13 +407,31 @@ def _make_prompt_controller_class():
 _PromptController = _make_prompt_controller_class()
 
 
-def show_message(message: str) -> None:
-    from AppKit import NSAlert
+def show_message(message: str, collect_mistake_stage: bool = False) -> str | None:
+    from AppKit import NSAlert, NSMakeRect, NSPopUpButton
 
     _activate_app()
 
     alert = NSAlert.alloc().init()
     alert.setMessageText_("Doomsday Drill")
+    if collect_mistake_stage:
+        message += "\n\nWhich step caused trouble?"
     alert.setInformativeText_(message)
+
+    stage_popup = None
+    if collect_mistake_stage:
+        stage_popup = NSPopUpButton.alloc().initWithFrame_pullsDown_(
+            NSMakeRect(0.0, 0.0, 240.0, 26.0),
+            False,
+        )
+        stage_popup.addItemsWithTitles_([label for label, _ in MISTAKE_STAGE_OPTIONS])
+        stage_popup.setAccessibilityLabel_("Mistake stage")
+        alert.setAccessoryView_(stage_popup)
+
     alert.addButtonWithTitle_("OK")
     alert.runModal()
+
+    if stage_popup is None:
+        return None
+
+    return MISTAKE_STAGE_OPTIONS[stage_popup.indexOfSelectedItem()][1]

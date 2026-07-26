@@ -33,6 +33,7 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats["misses_by_century"], {"2000": 1})
         self.assertEqual(stats["misses_by_year_mod_100"], {"26": 1})
         self.assertEqual(stats["recent_attempts"][0]["date"], "2026-07-04")
+        self.assertEqual(stats["recent_attempts"][0]["mistake_stage"], "unsure")
 
         stats = record_attempt(
             stats,
@@ -46,6 +47,32 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats["longest_streak"], 1)
         self.assertEqual(stats["misses_by_month"], {})
         self.assertEqual(stats["misses_by_century"], {})
+
+    def test_reported_mistake_only_reinforces_that_stage(self):
+        stats = record_attempt(
+            empty_stats(),
+            check_answer("Sunday", date(2026, 7, 4)),
+            mistake_stage="year",
+        )
+
+        self.assertEqual(stats["misses_by_year_mod_100"], {"26": 1})
+        self.assertEqual(stats["misses_by_month"], {})
+        self.assertEqual(stats["misses_by_offset"], {})
+        self.assertEqual(stats["misses_by_century"], {})
+        self.assertEqual(stats["recent_attempts"][0]["mistake_stage"], "year")
+
+    def test_unknown_mistake_stage_uses_all_buckets(self):
+        stats = record_attempt(
+            empty_stats(),
+            check_answer("Sunday", date(2026, 7, 4)),
+            mistake_stage="unexpected",
+        )
+
+        self.assertEqual(stats["misses_by_month"], {"7": 1})
+        self.assertEqual(stats["misses_by_offset"], {"-7": 1})
+        self.assertEqual(stats["misses_by_century"], {"2000": 1})
+        self.assertEqual(stats["misses_by_year_mod_100"], {"26": 1})
+        self.assertEqual(stats["recent_attempts"][0]["mistake_stage"], "unsure")
 
     def test_stats_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:

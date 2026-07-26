@@ -17,7 +17,17 @@ def run() -> int:
         return 0
 
     result = check_answer(answer, question.target)
-    stats = record_attempt(stats, result)
+    if result.is_correct:
+        stats = record_attempt(stats, result)
+        save_stats(stats)
+        show_message(f"{feedback_message(result)}\n\n{stats_summary(stats)}")
+        return 0
+
+    preview_stats = record_attempt(stats, result, mistake_stage="unsure")
+    mistake_stage = show_message(
+        f"{feedback_message(result)}\n\n{stats_summary(preview_stats)}",
+        collect_mistake_stage=True,
+    )
+    stats = record_attempt(stats, result, mistake_stage=mistake_stage)
     save_stats(stats)
-    show_message(f"{feedback_message(result)}\n\n{stats_summary(stats)}")
     return 0
