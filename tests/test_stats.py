@@ -5,10 +5,12 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from doomsday_drill.core import adaptive_random_date, check_answer
+from doomsday_drill.core import adaptive_random_date, check_answer, doomsday_reference
 from doomsday_drill.stats import (
+    STATS_VERSION,
     empty_stats,
     load_stats,
+    normalize_stats,
     record_attempt,
     save_stats,
     stats_summary,
@@ -111,6 +113,20 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(loaded["correct_attempts"], 1)
         self.assertEqual(loaded["current_streak"], 1)
 
+    def test_normalize_stats_migrates_an_old_schema(self):
+        normalized = normalize_stats(
+            {
+                "version": 1,
+                "total_attempts": 9,
+                "misses_by_month": {"2": 3},
+            }
+        )
+
+        self.assertEqual(normalized["version"], STATS_VERSION)
+        self.assertEqual(normalized["total_attempts"], 9)
+        self.assertEqual(normalized["misses_by_month"], {"2": 3})
+        self.assertEqual(normalized["misses_by_year"], {})
+
     def test_failed_save_preserves_existing_stats(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "stats.json"
@@ -185,6 +201,28 @@ class StatsTests(unittest.TestCase):
         target = adaptive_random_date(stats, rng=random.Random(1))
 
         self.assertEqual(target.year, 2044)
+
+    def test_adaptive_random_date_supports_other_bucket_types(self):
+        cases = (
+            (
+                "misses_by_offset",
+                "4",
+                lambda target: doomsday_reference(target).offset_days,
+            ),
+            (
+                "misses_by_century",
+                "1900",
+                lambda target: (target.year // 100) * 100,
+            ),
+            ("misses_by_year_mod_100", "26", lambda target: target.year % 100),
+        )
+
+        for bucket, wanted, observed_value in cases:
+            with self.subTest(bucket=bucket):
+                stats = empty_stats()
+                stats[bucket] = {wanted: 25}
+                target = adaptive_random_date(stats, rng=random.Random(1))
+                self.assertEqual(observed_value(target), int(wanted))
 
 
 if __name__ == "__main__":

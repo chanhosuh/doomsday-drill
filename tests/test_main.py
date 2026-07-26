@@ -11,6 +11,26 @@ class MainTests(unittest.TestCase):
     @patch("doomsday_drill.main.show_message")
     @patch("doomsday_drill.main.save_stats")
     @patch("doomsday_drill.main.record_attempt")
+    @patch("doomsday_drill.main.ask_weekday", return_value=None)
+    @patch("doomsday_drill.main.make_question")
+    @patch("doomsday_drill.main.load_stats", return_value={})
+    def test_skip_has_no_side_effects(
+        self,
+        load_stats,
+        make_question,
+        ask_weekday,
+        record_attempt,
+        save_stats,
+        show_message,
+    ):
+        self.assertEqual(run(), 0)
+        record_attempt.assert_not_called()
+        save_stats.assert_not_called()
+        show_message.assert_not_called()
+
+    @patch("doomsday_drill.main.show_message")
+    @patch("doomsday_drill.main.save_stats")
+    @patch("doomsday_drill.main.record_attempt")
     @patch("doomsday_drill.main.ask_weekday", return_value="notaday")
     @patch("doomsday_drill.main.make_question")
     @patch("doomsday_drill.main.load_stats", return_value={})
@@ -27,6 +47,32 @@ class MainTests(unittest.TestCase):
         record_attempt.assert_not_called()
         save_stats.assert_not_called()
         show_message.assert_not_called()
+
+    @patch("doomsday_drill.main.save_stats")
+    @patch("doomsday_drill.main.show_message")
+    @patch("doomsday_drill.main.ask_weekday", return_value="Saturday")
+    @patch("doomsday_drill.main.load_stats", side_effect=empty_stats)
+    def test_correct_answer_is_saved_and_shows_feedback(
+        self,
+        load_stats,
+        ask_weekday,
+        show_message,
+        save_stats,
+    ):
+        question = DrillQuestion(
+            target=date(2026, 7, 4),
+            prompt="What day?",
+            correct_weekday="Saturday",
+            hint="Hint",
+        )
+
+        with patch("doomsday_drill.main.make_question", return_value=question):
+            self.assertEqual(run(), 0)
+
+        saved_stats = save_stats.call_args.args[0]
+        self.assertEqual(saved_stats["correct_attempts"], 1)
+        self.assertEqual(saved_stats["current_streak"], 1)
+        self.assertIn("Correct: Saturday", show_message.call_args.args[0])
 
     @patch("doomsday_drill.main.save_stats")
     @patch("doomsday_drill.main.show_message", return_value="year")

@@ -25,6 +25,9 @@ Run tests:
 .venv/bin/python -m unittest discover -s tests
 ```
 
+The same suite runs on `macos-latest` in GitHub Actions so the PyObjC/AppKit
+import path is checked as well as the platform-independent calculation logic.
+
 ## Stats And Adaptation
 
 Submitted answers are recorded in:

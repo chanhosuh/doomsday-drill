@@ -13,6 +13,26 @@ MISTAKE_STAGE_OPTIONS = (
 )
 
 
+def weekday_validation_message(answer: str) -> str | None:
+    if parse_weekday_answer(answer) is not None:
+        return None
+    return "Enter a weekday name or abbreviation."
+
+
+def mistake_stage_options(
+    allowed_keys: tuple[str, ...] | None = None,
+) -> tuple[tuple[str, str], ...]:
+    if allowed_keys is None:
+        return MISTAKE_STAGE_OPTIONS
+
+    allowed = set(allowed_keys)
+    return tuple(
+        option
+        for option in MISTAKE_STAGE_OPTIONS
+        if option[1] == "unsure" or option[1] in allowed
+    )
+
+
 def _activate_app():
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
 
@@ -378,11 +398,9 @@ def _make_prompt_controller_class():
 
         def check_(self, sender):
             answer = _string_value(self.answer_field)
-            if parse_weekday_answer(answer) is None:
-                _set_string_value(
-                    self.error_field,
-                    "Enter a weekday name or abbreviation.",
-                )
+            validation_message = weekday_validation_message(answer)
+            if validation_message is not None:
+                _set_string_value(self.error_field, validation_message)
                 _set_first_responder(self.window, self.answer_field)
                 return
 
@@ -423,15 +441,8 @@ def show_message(
     alert.setInformativeText_(message)
 
     stage_popup = None
-    stage_options = MISTAKE_STAGE_OPTIONS
+    stage_options = mistake_stage_options(mistake_stage_keys)
     if collect_mistake_stage:
-        if mistake_stage_keys is not None:
-            allowed = set(mistake_stage_keys)
-            stage_options = tuple(
-                option
-                for option in MISTAKE_STAGE_OPTIONS
-                if option[1] == "unsure" or option[1] in allowed
-            )
         stage_popup = NSPopUpButton.alloc().initWithFrame_pullsDown_(
             NSMakeRect(0.0, 0.0, 240.0, 26.0),
             False,
