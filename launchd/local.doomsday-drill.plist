@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>local.doomsday-drill</string>
+  <key>Program</key>
+  <string>PROJECT_PYTHON</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>python</string>
+    <string>-m</string>
+    <string>doomsday_drill.watcher</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>PROJECT_DIRECTORY</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>StandardOutPath</key>
+  <string>/tmp/local.doomsday-drill.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/local.doomsday-drill.err.log</string>
+</dict>
+</plist>

@@ -92,7 +92,7 @@ plist:
 <key>EnvironmentVariables</key>
 <dict>
   <key>DOOMSDAY_REFERENCE_URL</key>
-  <string>file:///Users/example/path/to/reference.pdf</string>
+  <string>file:///path/to/reference.pdf</string>
 </dict>
 ```
 
@@ -114,16 +114,17 @@ installed.
 Enable it:
 
 ```bash
-mkdir -p ~/Library/LaunchAgents
-ln -sf /Users/example/git/doomsday-drill/launchd/com.example.doomsday-drill.plist \
-  ~/Library/LaunchAgents/com.example.doomsday-drill.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.doomsday-drill.plist
+./scripts/install-launch-agent.sh
 ```
+
+The installer determines the repository's absolute path and writes a generated
+plist to `~/Library/LaunchAgents/local.doomsday-drill.plist`. The committed plist
+is a portable template and contains no user-specific paths.
 
 Run it once immediately to test:
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.example.doomsday-drill
+launchctl kickstart -k gui/$(id -u)/local.doomsday-drill
 ```
 
 After that, the watcher remains resident in your graphical session and presents
@@ -133,35 +134,29 @@ and a second drill is not opened while one is already active.
 Check whether launchd knows about it:
 
 ```bash
-launchctl print gui/$(id -u)/com.example.doomsday-drill
+launchctl print gui/$(id -u)/local.doomsday-drill
 ```
 
 View logs:
 
 ```bash
-tail -n 50 /tmp/com.example.doomsday-drill.out.log
-tail -n 50 /tmp/com.example.doomsday-drill.err.log
+tail -n 50 /tmp/local.doomsday-drill.out.log
+tail -n 50 /tmp/local.doomsday-drill.err.log
 ```
 
 Disable it cleanly:
 
 ```bash
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.example.doomsday-drill.plist
+./scripts/uninstall-launch-agent.sh
 ```
 
-Remove the LaunchAgent symlink:
-
-```bash
-rm ~/Library/LaunchAgents/com.example.doomsday-drill.plist
-```
-
-Those two steps completely disable automatic launches. The remaining saved data
-and logs are inert, but can also be removed if they are no longer wanted:
+That completely disables automatic launches. The remaining saved data and logs
+are inert, but can also be removed if they are no longer wanted:
 
 ```text
 ~/Library/Application Support/Doomsday Drill/
-/tmp/com.example.doomsday-drill.out.log
-/tmp/com.example.doomsday-drill.err.log
+/tmp/local.doomsday-drill.out.log
+/tmp/local.doomsday-drill.err.log
 ```
 
 The Application Support directory contains drill history and adaptive stats.
@@ -170,8 +165,7 @@ The `/tmp` files contain launchd output and errors.
 If you edit the plist after it has already been loaded, unload and load it again:
 
 ```bash
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.example.doomsday-drill.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.doomsday-drill.plist
+./scripts/install-launch-agent.sh
 ```
 
 ## Extensions
