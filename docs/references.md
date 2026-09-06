@@ -18,8 +18,9 @@ The archived scan begins with a publisher-added cover stating that the work is
 published under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
 It credits The Archimedeans and the Betty & Gordon Moore Library, Cambridge.
 The README's short quotation is taken from Conway's article, with attribution.
-The scan is linked, not bundled in this repository. Its license does not by
-itself license the app's code.
+The scan is linked, not bundled in this repository. The app's code is separately
+licensed under [MIT](../LICENSE); that license does not relicense Conway's article
+or the README quotation.
 
 The former publisher URL, `https://www.archim.org.uk/eureka/archive/Eureka-36.pdf`,
 returned 404 when checked on September 6, 2026. The archived scan and transcription

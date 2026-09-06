@@ -86,6 +86,11 @@ For the later Odd + 11 shortcut, read Fong and Walters'
 
 [Sources and attribution](docs/references.md) / [Development notes](docs/development.md)
 
+## License
+
+[MIT](LICENSE). Third-party quotations and linked references retain their own
+terms; see [Sources and attribution](docs/references.md).
+
 [conway]: https://simonplantinga.nl/posts/conway-doomsday/
 [video]: https://www.youtube.com/watch?v=T_nQG-Bzxsg
 [scan]: https://web.archive.org/web/20240907031643/https://www.archim.org.uk/eureka/archive/Eureka-36.pdf#page=31
