@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from .config import REFERENCE_URL
 from .core import parse_weekday_answer
 
@@ -146,9 +148,11 @@ def _disclosure_button(target):
     from AppKit import NSBezelStyleDisclosure, NSButton, NSButtonTypeOnOff
 
     button = NSButton.alloc().initWithFrame_(((0.0, 0.0), (0.0, 0.0)))
-    button.setTitle_("Conway-style hint")
+    button.setTitle_("")
     button.setButtonType_(NSButtonTypeOnOff)
     button.setBezelStyle_(NSBezelStyleDisclosure)
+    button.setAccessibilityLabel_("Show Conway-style hint")
+    button.setToolTip_("Show or hide the calculation hint")
     button.setTarget_(target)
     button.setAction_("toggleHint:")
     return button
@@ -241,20 +245,14 @@ def _set_delegate(window, delegate) -> None:
     window.setDelegate_(delegate)
 
 
-def _set_title(control, title: str) -> None:
-    control.setTitle_(title)
-
-
 class _PromptControllerBase:
     WIDTH = 440.0
     COLLAPSED_HEIGHT = 204.0
-    EXPANDED_HEIGHT = 418.0
     MARGIN = 20.0
     PROMPT_HEIGHT = 38.0
     ENTRY_HEIGHT = 24.0
     ERROR_HEIGHT = 18.0
     DISCLOSURE_HEIGHT = 24.0
-    HINT_HEIGHT = 200.0
     BUTTON_WIDTH = 82.0
     REFERENCE_BUTTON_WIDTH = 104.0
     BUTTON_HEIGHT = 32.0
@@ -269,6 +267,7 @@ class _PromptControllerBase:
         self.answer_field.setDelegate_(self)
         self.error_field = _error_label()
         self.disclosure = _disclosure_button(self)
+        self.hint_label = _label("Conway-style hint", 12.0)
         self.hint_field = _label(self.hint, 12.0, selectable=True)
         self.reference_button = _target_action_button("Reference", self, "reference:")
         self.skip_button = _target_action_button("Skip", self, "skip:")
@@ -283,6 +282,7 @@ class _PromptControllerBase:
             self.answer_field,
             self.error_field,
             self.disclosure,
+            self.hint_label,
             self.hint_field,
             self.reference_button,
             self.skip_button,
@@ -293,9 +293,17 @@ class _PromptControllerBase:
         self._layout()
 
     def _layout(self) -> None:
+        from AppKit import NSMakeRect
+
         expanded = _is_on(self.disclosure)
-        height = self.EXPANDED_HEIGHT if expanded else self.COLLAPSED_HEIGHT
         width = self.WIDTH - (self.MARGIN * 2)
+        hint_width = width - 18.0
+        hint_height = math.ceil(
+            self.hint_field.cell().cellSizeForBounds_(
+                NSMakeRect(0.0, 0.0, hint_width, 10000.0)
+            ).height
+        ) + 2.0
+        height = self.COLLAPSED_HEIGHT + (hint_height + 14.0 if expanded else 0.0)
         _set_window_content_size(self.window, self.WIDTH, height)
 
         y = height - self.MARGIN - self.PROMPT_HEIGHT
@@ -308,17 +316,18 @@ class _PromptControllerBase:
         _set_frame(self.error_field, self.MARGIN, y, width, self.ERROR_HEIGHT)
 
         y -= 30.0
-        _set_frame(self.disclosure, self.MARGIN, y, width, self.DISCLOSURE_HEIGHT)
+        _set_frame(self.disclosure, self.MARGIN, y, 18.0, self.DISCLOSURE_HEIGHT)
+        _set_frame(self.hint_label, self.MARGIN + 22.0, y + 3.0, width - 22.0, 18.0)
 
         if expanded:
             _hide(self.hint_field, False)
-            y -= self.HINT_HEIGHT + 4.0
+            y -= hint_height + 4.0
             _set_frame(
                 self.hint_field,
                 self.MARGIN + 18.0,
                 y,
-                width - 18.0,
-                self.HINT_HEIGHT,
+                hint_width,
+                hint_height,
             )
         else:
             _hide(self.hint_field, True)
@@ -389,9 +398,12 @@ def _make_prompt_controller_class():
             return self
 
         def toggleHint_(self, sender):
-            _set_title(
-                self.disclosure,
+            _set_string_value(
+                self.hint_label,
                 "Hide Conway-style hint" if _is_on(self.disclosure) else "Conway-style hint",
+            )
+            self.disclosure.setAccessibilityLabel_(
+                "Hide Conway-style hint" if _is_on(self.disclosure) else "Show Conway-style hint"
             )
             self._layout()
             self.window.center()
@@ -430,11 +442,16 @@ def show_message(
     collect_mistake_stage: bool = False,
     mistake_stage_keys: tuple[str, ...] | None = None,
 ) -> str | None:
-    from AppKit import NSAlert, NSMakeRect, NSPopUpButton
+    from AppKit import NSAlert, NSImage, NSMakeRect, NSPopUpButton
 
     _activate_app()
 
     alert = NSAlert.alloc().init()
+    calendar_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+        "calendar", "Doomsday Drill"
+    )
+    if calendar_icon is not None:
+        alert.setIcon_(calendar_icon)
     alert.setMessageText_("Doomsday Drill")
     if collect_mistake_stage:
         message += "\n\nWhich step caused trouble?"
