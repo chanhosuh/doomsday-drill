@@ -1,6 +1,6 @@
 # Setup and Troubleshooting
 
-For installation and a first drill, start with the [README](../README.md#try-it).
+For installation and a first drill, start with the [README](../README.md#running-locally).
 Run the commands below from the repository directory unless stated otherwise.
 
 ## Login and Screen Unlock
